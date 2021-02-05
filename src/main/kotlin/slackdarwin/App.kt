@@ -1,7 +1,7 @@
 package slackdarwin
 
 import java.io.InputStream
-import java.util.*
+import java.util.Properties
 
 fun main(args: Array<String>) {
     try {
@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
     }
 }
 
-fun printReport(report: ClassificationReport) {
+private fun printReport(report: ClassificationReport) {
     println("\nClassification:")
     println("Total messages: ${report.totalMessages}\n")
     MessageClassification
@@ -27,17 +27,17 @@ fun printReport(report: ClassificationReport) {
     }
 }
 
-fun showInfo() {
+private fun showInfo() {
     println("Slack Darwin - Categorization of Slack Messages v${applicationProps()["version"]}")
 }
 
-fun showUsageInstructions(errorMessage: String?) {
+private fun showUsageInstructions(errorMessage: String?) {
     println("Invalid input: $errorMessage")
     println("\nUsage:")
     println("$ java -jar slack-darwin.jar -TOKEN=[token] -CHANNEL=[channel] (optional: -LIMIT=[max number of messages], default to ${SlackDarwinApplication.DEFAULT_MESSAGE_LIMIT})")
 }
 
-fun applicationProps() : Properties {
+private fun applicationProps() : Properties {
     val prop = Properties()
     val loader = Thread.currentThread().contextClassLoader
     val stream: InputStream = loader.getResourceAsStream("application.properties")!!
