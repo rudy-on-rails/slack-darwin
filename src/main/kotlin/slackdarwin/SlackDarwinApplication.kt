@@ -1,6 +1,8 @@
 package slackdarwin
 
 import com.slack.api.Slack
+import com.slack.api.model.Channel
+import com.slack.api.model.Conversation
 import com.slack.api.model.ConversationType
 import com.slack.api.model.Message
 
@@ -13,6 +15,7 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
         const val CHANNEL = "channel"
         const val LIMIT = "limit"
         const val DEFAULT_MESSAGE_LIMIT = 100
+        const val CHANNELS_LIMIT = 500
     }
 
     private fun parseOptionsFromArgs(args: Array<String>) : SlackDarwinConfiguration {
@@ -49,16 +52,35 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
     }
 
     fun buildReport() : ClassificationReport {
-        val targetChannel = slackClient.conversationsList{
-            it
-                .token(configuration.token)
-                .types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
-        }.channels.find { it.name == configuration.channel }
-            ?: throw InvalidArgsException("Channel ${configuration.channel} not found!")
+        var cursor: String? = null
+        var targetChannel: Conversation? = null
+        var checkedChannels: Int = CHANNELS_LIMIT
+        do {
+            println("Checked $checkedChannels channels...")
+            slackClient.conversationsList {
+                it
+                    .token(configuration.token)
+                    .types(listOf(ConversationType.PUBLIC_CHANNEL, ConversationType.PRIVATE_CHANNEL))
+                    .limit(CHANNELS_LIMIT)
+                    .excludeArchived(true)
+                    .cursor(cursor)
+            }.also { conversationsListResponse ->
+                targetChannel = conversationsListResponse.channels.find { it.name == configuration.channel }
+                cursor = conversationsListResponse.responseMetadata.nextCursor
+                checkedChannels += CHANNELS_LIMIT
+                Thread.sleep(500)
+            }
+
+        } while (cursor != null && targetChannel == null)
+
+        if (targetChannel == null) {
+            throw InvalidArgsException("Channel ${configuration.channel} not found!")
+        }
+
         slackClient.conversationsHistory {
             it
                 .token(configuration.token)
-                .channel(targetChannel.id)
+                .channel(targetChannel!!.id)
                 .limit(configuration.messagesLimit)
                 .inclusive(true)
         }.also {
