@@ -1,6 +1,8 @@
 package slackdarwin
 
 import com.slack.api.model.Message
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 class ClassificationReport {
     var totalMessages = 0
@@ -22,12 +24,12 @@ class ClassificationReport {
         }
     }
 
-    fun percentageOfMessages(classification: MessageClassification) : Double {
+    fun percentageOfMessages(classification: MessageClassification) : BigDecimal {
         if (totalMessages == 0) {
-            return 0.00
+            return 0.00.toBigDecimal()
         }
         return messagesPerClassification[classification]?.let {
             (it.count().toDouble() / totalMessages) * 100
-        } ?: 0.00
+        }?.toBigDecimal()?.setScale(2, RoundingMode.DOWN) ?: 0.00.toBigDecimal()
     }
 }
