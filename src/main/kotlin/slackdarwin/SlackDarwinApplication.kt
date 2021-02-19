@@ -1,19 +1,20 @@
 package slackdarwin
 
 import com.slack.api.Slack
-import com.slack.api.model.Channel
 import com.slack.api.model.Conversation
 import com.slack.api.model.ConversationType
-import com.slack.api.model.Message
+import java.lang.IllegalArgumentException
 
 class SlackDarwinApplication(applicationArgs: Array<String>) {
     val configuration = parseOptionsFromArgs(applicationArgs)
     val slackClient = Slack.getInstance().methods()
 
     companion object {
+        val DEFAULT_REPORT_TYPE = ReportType.SUMMARY
         const val TOKEN = "token"
         const val CHANNEL = "channel"
         const val LIMIT = "limit"
+        const val REPORT = "report"
         const val DEFAULT_MESSAGE_LIMIT = 100
         const val CHANNELS_LIMIT = 500
     }
@@ -22,6 +23,7 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
         var token : String? = null
         var channel: String? = null
         var limit: Int = DEFAULT_MESSAGE_LIMIT
+        var reportType = DEFAULT_REPORT_TYPE
 
         args.forEach {
             it.split("=").also { keyOption ->
@@ -36,6 +38,13 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
                     if (key.contains(LIMIT)) {
                         limit = value.toInt()
                     }
+                    if (key.contains(REPORT)) {
+                        try {
+                            reportType = ReportType.valueOf(value)
+                        } catch (ex: IllegalArgumentException) {
+                            throw InvalidArgsException("Report type invalid! Valid values are: ${ReportType.values().map { r -> r.name }}")
+                        }
+                    }
                 }
             }
         }
@@ -47,16 +56,17 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
         return SlackDarwinConfiguration(
             token!!,
             channel!!,
-            limit
+            limit,
+            reportType
         )
     }
 
-    fun buildReport() : ClassificationReport {
+    fun buildContainer() : MessagesContainer {
         var cursor: String? = null
         var targetChannel: Conversation? = null
         var checkedChannels: Int = CHANNELS_LIMIT
         do {
-            println("Checked $checkedChannels channels...")
+            print("Darwin is looking and classifying ${checkedChannels} samples\r")
             slackClient.conversationsList {
                 it
                     .token(configuration.token)
@@ -68,7 +78,7 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
                 targetChannel = conversationsListResponse.channels.find { it.name == configuration.channel }
                 cursor = conversationsListResponse.responseMetadata.nextCursor
                 checkedChannels += CHANNELS_LIMIT
-                Thread.sleep(500)
+                Thread.sleep(200)
             }
 
         } while (cursor != null && targetChannel == null)
@@ -84,8 +94,10 @@ class SlackDarwinApplication(applicationArgs: Array<String>) {
                 .limit(configuration.messagesLimit)
                 .inclusive(true)
         }.also {
-            return ClassificationReport().let { report ->
-                it.messages.forEach{ message -> report.addMessage(message) }
+            return MessagesContainer().let { report ->
+                it.messages.forEach{
+                    message -> report.addMessage(message)
+                }
                 report
             }
         }

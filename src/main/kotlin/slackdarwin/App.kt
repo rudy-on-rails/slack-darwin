@@ -1,5 +1,9 @@
 package slackdarwin
 
+import slackdarwin.printers.ConsolePrinter
+import slackdarwin.printers.Printer
+import slackdarwin.reports.OverallSummaryReport
+import slackdarwin.reports.WeeklyReport
 import java.io.InputStream
 import java.util.Properties
 
@@ -8,8 +12,8 @@ fun main(args: Array<String>) {
         showInfo()
         SlackDarwinApplication(args).also {
             println("Parsing messages...")
-            it.buildReport().also { report ->
-                printReport(report)
+            it.buildContainer().also { container ->
+                printReport(container, it.configuration)
             }
         }
     } catch (ex: InvalidArgsException) {
@@ -17,15 +21,16 @@ fun main(args: Array<String>) {
     }
 }
 
-private fun printReport(report: ClassificationReport) {
-    println("\nClassification:")
-    println("Total messages: ${report.totalMessages}\n")
-    MessageClassification
-        .values()
-        .forEach {
-        println("Percentage of $it : ${report.percentageOfMessages(it)}%")
-    }
+private fun printReport(messagesContainer: MessagesContainer, configuration: SlackDarwinConfiguration) {
+    println("Printing report...")
+    val printer: Printer = ConsolePrinter()
+    when (configuration.reportType){
+        ReportType.SUMMARY -> OverallSummaryReport(messagesContainer)
+        ReportType.WEEKLY -> WeeklyReport(messagesContainer)
+    }.print(printer)
+    println("End of report")
 }
+
 
 private fun showInfo() {
     println("Slack Darwin - Categorization of Slack Messages v${applicationProps()["version"]}")
@@ -34,7 +39,7 @@ private fun showInfo() {
 private fun showUsageInstructions(errorMessage: String?) {
     println("Invalid input: $errorMessage")
     println("\nUsage:")
-    println("$ java -jar slack-darwin.jar -TOKEN=[token] -CHANNEL=[channel] (optional: -LIMIT=[max number of messages], default to ${SlackDarwinApplication.DEFAULT_MESSAGE_LIMIT})")
+    println("$ java -jar slack-darwin.jar -TOKEN=[token]-CHANNEL=[channel]\n(optional: -LIMIT=[max number of messages], default to ${SlackDarwinApplication.DEFAULT_MESSAGE_LIMIT})\n(optional: -REPORT=[report type], default to ${SlackDarwinApplication.DEFAULT_REPORT_TYPE})")
 }
 
 private fun applicationProps() : Properties {
